@@ -595,6 +595,13 @@ Fixpoint weight_r (s : seq nat) {struct s} : bits :=
 Definition weight (s : state) : bits :=
   weight_r (rows s).
 
+(* Extra Lemma: weight equals weight_r rows *)
+
+Lemma weight_eq_weight_rows (s : state) : weight s = weight_r (rows s).
+Proof.
+  trivial.
+Qed.
+
 (* -------------------------------------------------------------------- *)
 (* Prove that the empty game board has a weight of 0                    *)
 (*                                                                      *)
@@ -606,8 +613,15 @@ Proof.
 rewrite /weight /rows.
 
 (* The proof can now be done by induction over [enum 'I_p]              *)
-(* FIXME *)
-Admitted.
+induction (enum 'I_p).
+* simpl.
+  reflexivity.
+* simpl.
+  rewrite IHl.
+  rewrite n2b0.
+  rewrite bxorb0.
+  reflexivity.
+Qed.
 
 (* -------------------------------------------------------------------- *)
 (* We now prove some extra lemmas about [weight_r].                     *)
@@ -616,16 +630,23 @@ Admitted.
 
 Lemma weight_r0: weight_r nil = bits0.
 Proof.
-Admitted.
+  simpl.
+  reflexivity.
+Qed.
 
 Lemma weight_r1 (n : nat): weight_r [:: n] = n2b n.
 Proof.
-Admitted.
+  simpl.
+  rewrite bxorb0.
+  reflexivity.
+Qed.
 
 Lemma weight_rS (n : nat) (ns : list nat) :
   weight_r (n :: ns) = n2b n .+ weight_r ns.
 Proof.
-Admitted.
+  simpl.
+  reflexivity.
+Qed.
 
 (* Here, [++] denotes [cat], the list-concatenation function.           *)
 (*                                                                      *)
@@ -640,8 +661,14 @@ Admitted.
 Lemma weight_rD (r s : list nat) :
   weight_r (r ++ s) = bxor (weight_r r) (weight_r s).
 Proof.
-(* FIXME *)
-Admitted.
+  induction r.
+  * simpl.
+    rewrite bxor0b.
+    reflexivity.
+  * simpl.
+    rewrite IHr.
+    apply bxorA.
+Qed.
 
 (* -------------------------------------------------------------------- *)
 (* We can describe how the weight evolves after one turn                *)
@@ -684,11 +711,40 @@ Qed.
 (* Hint: use [RP] and the [weight_rX] lemmas.                           *)
 (* Hint: you will also need the [bxorX] lemmas family.                  *)
 
+(* Extra Lemmas: Addition property of xor *)
+Lemma bxor_add_left (l b0 b1 : bits) : b0 = b1 -> l .+ b0 = l .+ b1.
+Proof.
+  move => h.
+  rewrite h.
+  reflexivity.
+Qed.
+
 Lemma turn_weight (i : 'I_p) (s1 s2 : state) :
   R i s1 s2 -> weight s2 = weight s1 .+ n2b (s1 i) .+ n2b (s2 i).
 Proof.
-(* FIXME *)
-Admitted.
+move => hr.
+have hCharacterization := RP hr.
+elim hCharacterization => [p0] [q [hsz hrs1 hrs2]].
+repeat (rewrite weight_eq_weight_rows).
+rewrite hrs1.
+rewrite hrs2.
+repeat (rewrite weight_rD).
+repeat (rewrite weight_rS).
+rewrite -bxorA.
+rewrite -bxorA.
+apply (bxor_add_left (weight_r p0)).
+rewrite bxorC.
+rewrite -bxorA.
+rewrite [RHS]bxorC.
+rewrite -bxorA.
+apply (bxor_add_left (weight_r q)).
+rewrite [X in _ = X .+ _] bxorC.
+rewrite -bxorA.
+rewrite -[LHS]bxorb0.
+apply (bxor_add_left (n2b (s2 i))).
+rewrite bxorbb.
+reflexivity.
+Qed.
 
 (* -------------------------------------------------------------------- *)
 (* Any move from a 0-weighted game leads to a non 0-weighted game       *)
