@@ -711,12 +711,22 @@ Qed.
 (* Hint: use [RP] and the [weight_rX] lemmas.                           *)
 (* Hint: you will also need the [bxorX] lemmas family.                  *)
 
-(* Extra Lemmas: Addition property of xor *)
+(* Extra Lemmas: Addition and cancellation property of xor *)
 Lemma bxor_add_left (l b0 b1 : bits) : b0 = b1 -> l .+ b0 = l .+ b1.
 Proof.
   move => h.
   rewrite h.
   reflexivity.
+Qed.
+
+Lemma bxor_cancel_left (l b0 b1 : bits) : l .+ b0 = l.+ b1 -> b0 = b1.
+Proof.
+	move => heq.
+	have hDouble := bxor_add_left l heq.
+	repeat (rewrite bxorA in hDouble).
+	rewrite bxorbb in hDouble.
+	repeat (rewrite bxor0b in hDouble).
+	exact hDouble.
 Qed.
 
 Lemma turn_weight (i : 'I_p) (s1 s2 : state) :
@@ -759,8 +769,23 @@ Lemma z2nz (i : 'I_p) (s1 s2 : state) :
 Proof.
 have n2b_inj: forall m n, n2b m = n2b n -> m = n.
 - by move=> m n /(can_inj n2bK).
-(* FIXME *)
-Admitted.
+move => hr hws1.
+have htw := turn_weight hr.
+move => hws2.
+rewrite hws2 in htw.
+rewrite hws1 in htw.
+rewrite bxor0b in htw.
+have heq := bxor_add_left (n2b (s1 i)) htw.
+rewrite bxorb0 in heq.
+rewrite bxorA in heq.
+rewrite bxorbb in heq.
+rewrite bxor0b in heq.
+have hseq := n2b_inj _ _ heq.
+elim hr => [hless hother].
+rewrite -hseq in hless.
+move: hless.
+elim (s1 i) => [| n hn] //=.
+Qed.
 
 (* -------------------------------------------------------------------- *)
 (* From any non 0-weight game, it is possible to move to a              *)
