@@ -794,8 +794,85 @@ Qed.
 (* Hint: for this one, you are on your own.                             *)
 (* Hint: https://en.wikipedia.org/wiki/Nim#Proof_of_the_winning_formula *)
 
+(* Lemma nbit_weight_eq_nbit_xor (s : state) (d : nat) : (weight s).[d] = xor (map (fun r => (n2b r).[d]) (rows s)). *)
+
+Lemma ingredients (s : state) : (rows s != [::]) -> exists i : 'I_p, (head 0 (rows s)) == s i.
+Proof.
+  move => hnonempty.
+  apply/existsP/existsPn => //=.
+  move: hnonempty.
+  rewrite /rows.
+  move => hnonempty.
+  move => hf.
+  simpl in hf.
+  rewrite /rows in hf.
+  rewrite /head in hf.
+  have hh := nth_rows s.
+  rewrite -hh in hf.
+
+Lemma induce_rows (s : state) (P : nat -> bool) : (forall x : 'I_p, P (s x) = true) -> all P (rows s).
+Proof.
+move => h.
+elim (rows s) => [| a l hl] //=.
+rewrite -[s _]nth_rows in h.
+
+
+Lemma samebit_exists (s : state) (d : nat) : (weight s).[d] <-> exists i : 'I_p, (n2b (s i)).[d].
+Proof.
+  split.
+  * move => hws.
+    apply/existsP/existsPn => //=.
+    move => h.
+    rewrite /weight in hws.
+    have hf : (weight_r (rows s)).[d] = false.
+  **  elim (rows s) => [| a l hl] //=.
+  ***   exact (b0E d).
+  ***   
+
+Lemma dbit_exists (s : state) : weight s <> 0%:B -> exists (i : 'I_p), (n2b (s i)).[size (weight s) - 1].
+Proof.
+  move => hnez.
+  have hws : weight s = n2b (b2n (weight s)).
+  * rewrite (b2nK (weight s)).
+    reflexivity.
+  have hwd : (weight s).[(size (weight s)).-1].
+  * have [hhibit _] := hibit_neq0W (weight s).
+    exact (hhibit hnez).
+  rewrite /weight.
+  
+  elim (size (weight s)).
+  
+
+Lemma wt_lt_max (s : state) : weight s <> 0%:B -> exists (i : 'I_p), b2n (weight s) <= s i.
+Proof.
+  move => hnez.
+  apply/existsP/existsPn => //=.
+  have hnegle (a b : nat) : ~~ (a <= b) -> a > b.
+  * move: a.
+    elim: b => [| b' hb] //=.
+    move => a.
+    case: a => [| a'] //=.
+    case => [| a'] //=.
+    move => hab.
+    have hnew := hb a' hab.
+    exact hnew.
+  move: hnez.
+  rewrite /weight.
+  elim (rows s) => [| a l hl] //=.
+  * move => hnez.
+    move => h. 
+    have num : 'I_p.
+    rewrite -n2b0.
+    rewrite n2bK.
+    move => h.
+    move: hnez.
+    rewrite /weight.
 Lemma nz2z (s : state) : weight s <> 0%:B ->
   exists (i : 'I_p), exists (s' : state), weight s' = 0%:B /\ R i s s'.
 Proof.
-Admitted.
+  move => hnez.
+  rewrite /weight.
+
+  apply/existsP/existsPn => /=.
+
 End Nim.
