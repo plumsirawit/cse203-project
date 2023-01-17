@@ -794,8 +794,48 @@ Qed.
 (* Hint: for this one, you are on your own.                             *)
 (* Hint: https://en.wikipedia.org/wiki/Nim#Proof_of_the_winning_formula *)
 
-(* Lemma nbit_weight_eq_nbit_xor (s : state) (d : nat) : (weight s).[d] = xor (map (fun r => (n2b r).[d]) (rows s)). *)
+(* Extra Lemmas: Addition and cancellation property of xor, for single bit *)
+Lemma xor_add_left (l b0 b1 : bool) : b0 = b1 -> l (+) b0 = l (+) b1.
+Proof.
+  move => h.
+  rewrite h.
+  reflexivity.
+Qed.
 
+Lemma xor_cancel_left (l b0 b1 : bool) : l (+) b0 = l (+) b1 -> b0 = b1.
+Proof.
+	move => heq.
+	have hDouble := xor_add_left l heq.
+  repeat (rewrite addbA in hDouble).
+  rewrite addbb in hDouble.
+  repeat (rewrite addFb in hDouble).
+	exact hDouble.
+Qed.
+
+Lemma nbit_weight_eq_nbit_xor (s : state) (d : nat) : (weight s).[d] = \big[addb/false]_(x <- enum 'I_p) (n2b (s x)).[d].
+Proof.
+  rewrite /weight.
+  (* rewrite /weight_r. *)
+  rewrite /rows.
+  elim (enum 'I_p) => [| a l hl] //=.
+  * rewrite big_nil.
+    exact (b0E d).
+  * rewrite big_cons.
+    rewrite bxorE.
+    apply xor_add_left.
+    exact hl.
+Qed.
+
+Lemma empty_row_gives_empty_weight (s : state) (d : nat) : (forall x : 'I_p, ~~ (n2b (s x)).[d]) -> (weight s).[d] = false.
+Proof.
+  move => hempty.
+  have hlemma :  (weight s).[d] = \big[addb/false]_(x <- enum 'I_p) (n2b (s x)).[d].
+  * elim (enum 'I_p) => [| a l hl] //=.
+  **  rewrite big_nil.
+  rewrite [RHS]hempty.
+  rewrite /weight.
+  elim (rows s) => [| a l hl] //=.
+(*
 Lemma ingredients (s : state) : (rows s != [::]) -> exists i : 'I_p, (head 0 (rows s)) == s i.
 Proof.
   move => hnonempty.
@@ -815,19 +855,19 @@ Proof.
 move => h.
 elim (rows s) => [| a l hl] //=.
 rewrite -[s _]nth_rows in h.
+*)
 
 
-Lemma samebit_exists (s : state) (d : nat) : (weight s).[d] <-> exists i : 'I_p, (n2b (s i)).[d].
+Lemma samebit_exists (s : state) (d : nat) : (weight s).[d] -> exists i : 'I_p, (n2b (s i)).[d].
 Proof.
-  split.
-  * move => hws.
-    apply/existsP/existsPn => //=.
-    move => h.
-    rewrite /weight in hws.
-    have hf : (weight_r (rows s)).[d] = false.
-  **  elim (rows s) => [| a l hl] //=.
-  ***   exact (b0E d).
-  ***   
+  move => hws.
+  apply/existsP/existsPn => //=.
+  move => h.
+  rewrite /weight in hws.
+  have hf : (weight_r (rows s)).[d] = false.
+  * elim (rows s) => [| a l hl] //=.
+  **  exact (b0E d).
+  **  Admitted.
 
 Lemma dbit_exists (s : state) : weight s <> 0%:B -> exists (i : 'I_p), (n2b (s i)).[size (weight s) - 1].
 Proof.
