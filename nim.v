@@ -794,7 +794,9 @@ Qed.
 (* Hint: for this one, you are on your own.                             *)
 (* Hint: https://en.wikipedia.org/wiki/Nim#Proof_of_the_winning_formula *)
 
-(* Extra Lemmas: Addition and cancellation property of xor, for single bit *)
+(* Note(Sirawit): A lot of extra lemmas are given here to help with the *)
+(* proof.                                                               *)
+
 Lemma xor_add_left (l b0 b1 : bool) : b0 = b1 -> l (+) b0 = l (+) b1.
 Proof.
   move => h.
@@ -829,90 +831,200 @@ Qed.
 Lemma empty_row_gives_empty_weight (s : state) (d : nat) : (forall x : 'I_p, ~~ (n2b (s x)).[d]) -> (weight s).[d] = false.
 Proof.
   move => hempty.
-  have hlemma :  (weight s).[d] = \big[addb/false]_(x <- enum 'I_p) (n2b (s x)).[d].
-  * elim (enum 'I_p) => [| a l hl] //=.
-  **  rewrite big_nil.
-  rewrite [RHS]hempty.
-  rewrite /weight.
-  elim (rows s) => [| a l hl] //=.
-(*
-Lemma ingredients (s : state) : (rows s != [::]) -> exists i : 'I_p, (head 0 (rows s)) == s i.
-Proof.
-  move => hnonempty.
-  apply/existsP/existsPn => //=.
-  move: hnonempty.
-  rewrite /rows.
-  move => hnonempty.
-  move => hf.
-  simpl in hf.
-  rewrite /rows in hf.
-  rewrite /head in hf.
-  have hh := nth_rows s.
-  rewrite -hh in hf.
-
-Lemma induce_rows (s : state) (P : nat -> bool) : (forall x : 'I_p, P (s x) = true) -> all P (rows s).
-Proof.
-move => h.
-elim (rows s) => [| a l hl] //=.
-rewrite -[s _]nth_rows in h.
-*)
-
+  rewrite nbit_weight_eq_nbit_xor.
+  elim (enum 'I_p) => [| a l hl] //=.
+  * rewrite big_nil.
+    reflexivity.
+  * rewrite big_cons.
+    have hf := hempty a.
+    rewrite /negb in hf.
+    case/boolP: (n2b (s a)).[d].
+  **  move => hno.
+      rewrite hno in hf.
+      discriminate.
+  **  move => hfalse.
+      rewrite addFb.
+      exact hl.
+Qed.
 
 Lemma samebit_exists (s : state) (d : nat) : (weight s).[d] -> exists i : 'I_p, (n2b (s i)).[d].
 Proof.
   move => hws.
   apply/existsP/existsPn => //=.
   move => h.
-  rewrite /weight in hws.
-  have hf : (weight_r (rows s)).[d] = false.
-  * elim (rows s) => [| a l hl] //=.
-  **  exact (b0E d).
-  **  Admitted.
+  have hew := empty_row_gives_empty_weight h.
+  rewrite hew in hws.
+  discriminate.
+Qed.
 
-Lemma dbit_exists (s : state) : weight s <> 0%:B -> exists (i : 'I_p), (n2b (s i)).[size (weight s) - 1].
+Lemma dbit_exists (s : state) : weight s <> 0%:B -> exists (i : 'I_p), (n2b (s i)).[(size (weight s)).-1].
 Proof.
   move => hnez.
-  have hws : weight s = n2b (b2n (weight s)).
-  * rewrite (b2nK (weight s)).
-    reflexivity.
   have hwd : (weight s).[(size (weight s)).-1].
   * have [hhibit _] := hibit_neq0W (weight s).
     exact (hhibit hnez).
-  rewrite /weight.
-  
-  elim (size (weight s)).
-  
+  exact (samebit_exists hwd).
+Qed.
 
-Lemma wt_lt_max (s : state) : weight s <> 0%:B -> exists (i : 'I_p), b2n (weight s) <= s i.
+(* weight_replace is the main ingredient of the proof. It says that     *)
+(* when we replace a row (s i) with another number (a), the weight      *)
+(* changes from (weight s) to (weight s) .+ (n2b (s i)) .+ (n2b a)      *)
+Lemma weight_replace (s : state) (i : 'I_p) (a : nat) :
+  weight (fun x : 'I_p => if x == i then a else (s x)) = (weight s) .+ (n2b (s i)) .+ (n2b a).
 Proof.
-  move => hnez.
-  apply/existsP/existsPn => //=.
-  have hnegle (a b : nat) : ~~ (a <= b) -> a > b.
-  * move: a.
-    elim: b => [| b' hb] //=.
-    move => a.
-    case: a => [| a'] //=.
-    case => [| a'] //=.
-    move => hab.
-    have hnew := hb a' hab.
-    exact hnew.
-  move: hnez.
   rewrite /weight.
-  elim (rows s) => [| a l hl] //=.
-  * move => hnez.
-    move => h. 
-    have num : 'I_p.
-    rewrite -n2b0.
-    rewrite n2bK.
-    move => h.
-    move: hnez.
-    rewrite /weight.
+  rewrite /rows.
+  have hgoal : (uniq (enum 'I_p)) -> weight_r [seq (if i0 == i then a else s i0) | i0 <- enum 'I_p] =
+  weight_r [seq s i0 | i0 <- enum 'I_p] .+ (if i \in (enum 'I_p) then n2b (s i) .+ n2b a else 0%:B).
+  (**
+   * The meaning of hgoal is that if we change one row of the state (from s i to a), then
+   * the updated weight will be (weight s) xor (s i) xor a. This is proved by using loop
+   * invariant, that is, if i is seen in the current enum state, then the updated weight
+   * will be (weight s) xor (s i) xor a. Otherwise, it is just simply (weight s).
+   *)
+  Check (enum 'I_p).
+  * elim (enum 'I_p) => [| b l hl] //=.
+  **  rewrite bxor0b.
+      move => _.
+      reflexivity.
+  **  case/boolP: (b == i).
+  ***   move => hbeqi.
+        have hbi := eqP hbeqi.
+        rewrite hbi.
+        move => hind.
+        rewrite /(_ && _) in hind.
+        move: hind.
+        case/boolP: (i \notin l).
+  ****    move => hininl huniq.
+          have heq := hl huniq.
+          rewrite heq.
+          rewrite /(_ \notin _) in hininl.
+          move: hininl.
+          case/boolP: (i \in l).
+  *****     move => hiinl hf.
+            discriminate.
+  *****     move => hininl _.
+            rewrite bxorb0.
+            rewrite mem_head.
+            (* Ref: https://math-comp.github.io/htmldoc/mathcomp.ssreflect.seq.html#mem_head *)
+            rewrite bxorC.
+            rewrite [RHS] bxorC.
+            rewrite [RHS] bxorA.
+            rewrite [RHS] bxorC.
+            apply bxor_add_left.
+            rewrite bxorC.
+            rewrite bxorA.
+            rewrite bxorbb.
+            rewrite bxor0b.
+            reflexivity.
+  ****    move => _ hf.
+          discriminate.
+  ***   move => hbneqi hind.
+        rewrite /(_ && _) in hind.
+        move: hind.
+        case/boolP: (b \notin l).
+  ****    move => hbninl huniq.
+          have heq := hl huniq.
+          rewrite -[RHS] bxorA.
+          apply bxor_add_left.
+          rewrite heq.
+          apply bxor_add_left.
+          rewrite in_cons.
+          (* Ref: https://math-comp.github.io/htmldoc/mathcomp.ssreflect.seq.html#in_cons *)
+          case/boolP: (i \in l).
+  *****     move => hiinl.
+            rewrite Coq.Bool.Bool.orb_true_intro. right. reflexivity.
+            (* Ref: https://coq.inria.fr/library/Coq.Bool.Bool.html *)
+            rewrite bxorC.
+            apply bxor_add_left.
+            reflexivity.
+  *****     move => hininl.
+            rewrite eq_sym in hbneqi.
+            rewrite /(_ != _) in hbneqi.
+            case/boolP: (i == b).
+  ******      move => hieqb.
+              rewrite hieqb in hbneqi.
+              discriminate.
+  ******      move => hineqb.
+              simpl.
+              reflexivity.
+  ****    move => hbninl hf.
+          discriminate.
+  rewrite enum_uniq in hgoal.
+  have t : true. trivial.
+  have hresult := hgoal t. (* I don't know how to do this in any simpler way. *)
+  rewrite hresult.
+  rewrite -[RHS] bxorA.
+  apply bxor_add_left.
+  case/boolP: (i \in enum 'I_p).
+  * move => ht.
+    reflexivity.
+  * move => hf.
+    have enum_in : i \in enum 'I_p.
+  **  rewrite (mem_enum 'I_p).
+      (* Ref: https://math-comp.github.io/htmldoc/mathcomp.ssreflect.fintype.html#mem_enum *)
+      rewrite /(_ \in _).
+      simpl.
+      reflexivity.
+    rewrite /(_ \notin _) in hf.
+    rewrite enum_in in hf.
+    discriminate.
+Qed.
+
 Lemma nz2z (s : state) : weight s <> 0%:B ->
   exists (i : 'I_p), exists (s' : state), weight s' = 0%:B /\ R i s s'.
 Proof.
   move => hnez.
-  rewrite /weight.
-
-  apply/existsP/existsPn => /=.
+  elim (dbit_exists hnez) => [i hi].
+  exists i.
+  exists (fun x => if x == i then b2n ((weight s) .+ (n2b (s i))) else (s x)).
+  split.
+  * simpl.
+    rewrite weight_replace.
+    rewrite b2nK.
+    rewrite bxorbb.
+    reflexivity.
+  * constructor.
+  **  case/boolP: (i == i).
+  ***   move => htriv.
+        rewrite -[X in _ < X]n2bK.
+        apply lt_n2b.
+        exists ((size (weight s)).-1).
+  ****    move => j hhighj.
+          rewrite bxorE.
+          rewrite -[RHS]addFb.
+          rewrite addbC.
+          rewrite [RHS]addbC.
+          apply xor_add_left.
+          apply bit_oversize.
+          move: hhighj.
+          case (size (weight s)) => [| w'] //=.
+  ****    rewrite bxorE.
+          rewrite hi.
+          rewrite -(hibit_neq0P (weight s)).
+          rewrite /(_ != _).
+          case/boolP: (weight s == 0%:B).
+  *****     move => hwz.
+            rewrite (eqP hwz) in hnez.
+            rewrite /(_ <> _) in hnez.
+            have hzeqz : 0%:B = 0%:B. trivial.
+            exfalso.
+            exact (hnez hzeqz).
+  *****     move => hwneqz.
+            done.
+  ***   move => hf.
+        rewrite /(_ != _) in hf.
+        rewrite eq_refl in hf.
+        discriminate.
+  **  move => j hjnei.
+      case/boolP: (j == i).
+  ***   move => hjeqi.
+        rewrite (eqP hjeqi) in hjnei.
+        rewrite eq_refl in hjnei.
+        simpl in hjnei.
+        discriminate.
+  ***   move => _.
+        reflexivity.
+Qed.
 
 End Nim.
